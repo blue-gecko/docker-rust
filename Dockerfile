@@ -1,4 +1,4 @@
-FROM rust:1.50-buster
+FROM rust:1.51-buster
 
 ## Set profile to Default
 RUN rustup set profile default
