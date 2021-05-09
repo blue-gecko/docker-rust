@@ -1,0 +1,15 @@
+version: "3.8"
+services:
+  rust:
+#    build: bluegecko/rust:latest
+    build: .
+    ports:
+    - 8080:8080
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - .:/home/dev/src/rust
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
