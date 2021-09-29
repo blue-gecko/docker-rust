@@ -46,7 +46,7 @@ ENV SHELL bash
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.54.0
+    RUST_VERSION=1.55.0
 
 RUN set -eux; \
     rustArch='x86_64-unknown-linux-gnu'; \
@@ -55,7 +55,7 @@ RUN set -eux; \
     wget "$url"; \
     echo "${rustupSha256} *rustup-init" | sha256sum -c -; \
     chmod +x rustup-init; \
-    ./rustup-init -y --no-modify-path --profile default --default-toolchain $RUST_VERSION --default-host ${rustArch}; 
+    ./rustup-init -y --no-modify-path --profile minimal --default-toolchain $RUST_VERSION --default-host ${rustArch}; 
 
 RUN rm rustup-init; 
 
@@ -69,17 +69,29 @@ RUN chmod -R a+w,o+rwX $RUSTUP_HOME $CARGO_HOME;
 # USER dev
 # ENV USER dev
 
-# Install extensions dependencies
-RUN rustup component add rust-analysis 
-RUN rustup component add rust-src 
-RUN rustup component add rls 
+# Install stable and nightly toolchain and components
+RUN rustup set profile default; \
+    rustup toolchain install $RUST_VERSION --component rust-docs rustfmt clippy rust-analysis rust-src rls; \
+    rustup toolchain install stable --component rust-docs rustfmt clippy rust-analysis rust-src rls; \
+    rustup toolchain install nightly --component rust-docs rustfmt clippy rust-analysis rust-src rls; \
+    rustup default $RUST_VERSION; \
+    rustup completions bash rustup >> /etc/bash_completion.d/rustup; \
+    rustup completions bash cargo >> /etc/bash_completion.d/cargo;
 
-RUN cargo install cargo-tarpaulin
-RUN cargo install cargo-criterion
-RUN cargo install diesel_cli --no-default-features --features "sqlite"
-RUN diesel completions bash > /etc/bash_completion.d/diesel
+# Install cargo extensions
+RUN cargo install cargo-tarpaulin; \
+    cargo install cargo-criterion; \
+    cargo install cargo-watch; \ 
+    cargo install drill; \ 
+    cargo install diesel_cli --no-default-features --features "sqlite"; \ 
+    diesel completions bash > /etc/bash_completion.d/diesel;
 
+# Create and set working directory
 RUN mkdir -p /home/dev/src/rust
+WORKDIR /home/dev/src/rust
+
+# Expose ports for webservices
+EXPOSE 80 8000 8001 8080 8081
 
 # Install windows target (using mingw)
 RUN set -eux; \
@@ -88,8 +100,8 @@ RUN set -eux; \
     echo "[target.x86_64-pc-windows-gnu]\nlinker = \"/usr/bin/x86_64-w64-mingw32-gcc\"\nar = \"/usr/bin/x86_64-w64-mingw32-ar\"" >> /root/.cargo/config.toml; \
     ln -s /root/.cargo /home/dev/src/rust/.cargo; 
 
-# A Mac OS X cross toolchain for Linux, FreeBSD, OpenBSD and Android
 # Install OS X Cross
+# A Mac OS X cross toolchain for Linux, FreeBSD, OpenBSD and Android
 RUN set -eux \
     && echo "Cloning osxcross..." \
     && git clone https://github.com/tpoechtrager/osxcross.git /usr/local/osxcross \
@@ -117,6 +129,5 @@ RUN set -eux; \
     rustup target add x86_64-apple-darwin; \
     echo "\n[target.x86_64-apple-darwin]\nlinker = \"x86_64-apple-darwin20.4-clang\"\nar = \"x86_64-apple-darwin20.4-ar\"" >> /root/.cargo/config.toml; 
 
-WORKDIR /home/dev/src/rust
-
+# Start bash shell running
 CMD ["/bin/bash"]
