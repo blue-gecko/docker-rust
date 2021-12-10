@@ -37,7 +37,31 @@ ARG OSX_SDK_VERSION=11.3
 ARG OSX_SDK_SUM=9adc1373d3879e1973d28ad9f17c9051b02931674a3ec2a2498128989ece2cb1
 ARG OSX_VERSION_MIN=10.14
 
-# Add a user `rustdev` so that you're not developing as the `root` user
+# Install OS X Cross
+# A Mac OS X cross toolchain for Linux, FreeBSD, OpenBSD and Android
+RUN set -eux \
+    && echo "Cloning osxcross..." \
+    && git clone https://github.com/tpoechtrager/osxcross.git /usr/local/osxcross \
+    && cd /usr/local/osxcross \
+    && rm -rf ./.git \
+    && true
+
+# Build OS X Cross
+RUN set -eux \
+    && echo "Building osxcross with ${OSX_SDK_VERSION}..." \
+    && cd /usr/local/osxcross \
+    && curl -Lo "./tarballs/MacOSX${OSX_SDK_VERSION}.sdk.tar.xz" \
+    "https://github.com/joseluisq/macosx-sdks/releases/download/${OSX_SDK_VERSION}/MacOSX${OSX_SDK_VERSION}.sdk.tar.xz" \
+    && echo "${OSX_SDK_SUM} ./tarballs/MacOSX${OSX_SDK_VERSION}.sdk.tar.xz" | sha256sum -c - \
+    && env UNATTENDED=yes OSX_VERSION_MIN=${OSX_VERSION_MIN} ./build.sh \
+    && rm -rf *~ taballs *.tar.xz \
+    && rm -rf /tmp/* \
+    && true
+
+# Add OS X Cross to PATH
+ENV PATH=$PATH:/usr/local/osxcross/target/bin
+
+# Add a user `dev` so that you're not developing as the `root` user
 # The user needs to sudoer be able to install code-server
 RUN adduser --gecos '/usr/bin/bash' --disabled-password dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
@@ -46,7 +70,7 @@ ENV SHELL bash
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.56.0
+    RUST_VERSION=1.57.0
 
 RUN set -eux; \
     rustArch='x86_64-unknown-linux-gnu'; \
@@ -79,7 +103,8 @@ RUN rustup set profile default; \
     rustup completions bash cargo >> /etc/bash_completion.d/cargo;
 
 # Install cargo extensions
-RUN cargo install cargo-tarpaulin; \
+RUN cargo install nu; \ 
+    cargo install cargo-tarpaulin; \
     cargo install cargo-criterion; \
     cargo install cargo-watch; \ 
     cargo install drill; \ 
@@ -90,9 +115,6 @@ RUN cargo install cargo-tarpaulin; \
 RUN mkdir -p /home/dev/src/rust
 WORKDIR /home/dev/src/rust
 
-# Expose ports for webservices
-EXPOSE 80 8000 8001 8080 8081
-
 # Install windows target (using mingw)
 RUN set -eux; \
     rustup target add x86_64-pc-windows-gnu; \
@@ -100,34 +122,13 @@ RUN set -eux; \
     echo "[target.x86_64-pc-windows-gnu]\nlinker = \"/usr/bin/x86_64-w64-mingw32-gcc\"\nar = \"/usr/bin/x86_64-w64-mingw32-ar\"" >> /root/.cargo/config.toml; \
     ln -s /root/.cargo /home/dev/src/rust/.cargo; 
 
-# Install OS X Cross
-# A Mac OS X cross toolchain for Linux, FreeBSD, OpenBSD and Android
-RUN set -eux \
-    && echo "Cloning osxcross..." \
-    && git clone https://github.com/tpoechtrager/osxcross.git /usr/local/osxcross \
-    && cd /usr/local/osxcross \
-    && rm -rf ./.git \
-    && true
-
-# Build OS X Cross
-RUN set -eux \
-    && echo "Building osxcross with ${OSX_SDK_VERSION}..." \
-    && cd /usr/local/osxcross \
-    && curl -Lo "./tarballs/MacOSX${OSX_SDK_VERSION}.sdk.tar.xz" \
-    "https://github.com/joseluisq/macosx-sdks/releases/download/${OSX_SDK_VERSION}/MacOSX${OSX_SDK_VERSION}.sdk.tar.xz" \
-    && echo "${OSX_SDK_SUM} ./tarballs/MacOSX${OSX_SDK_VERSION}.sdk.tar.xz" | sha256sum -c - \
-    && env UNATTENDED=yes OSX_VERSION_MIN=${OSX_VERSION_MIN} ./build.sh \
-    && rm -rf *~ taballs *.tar.xz \
-    && rm -rf /tmp/* \
-    && true
-
-# Add OS X Cross to PATH
-ENV PATH=$PATH:/usr/local/osxcross/target/bin
-
 # Install MacOS target
 RUN set -eux; \
     rustup target add x86_64-apple-darwin; \
     echo "\n[target.x86_64-apple-darwin]\nlinker = \"x86_64-apple-darwin20.4-clang\"\nar = \"x86_64-apple-darwin20.4-ar\"" >> /root/.cargo/config.toml; 
+
+# Expose ports for webservices
+EXPOSE 80 8000 8001 8080 8081
 
 # Start bash shell running
 CMD ["/bin/bash"]
