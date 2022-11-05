@@ -13,7 +13,7 @@ RUN apt-get update -y; \
     git \
     sudo \
     ssh \
-    pkg-config \
+    vim \
     openssl \
     libssl-dev \
     libxml2-dev \
@@ -70,7 +70,7 @@ ENV SHELL bash
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.57.0
+    RUST_VERSION=1.65.0
 
 RUN set -eux; \
     rustArch='x86_64-unknown-linux-gnu'; \
@@ -106,7 +106,8 @@ RUN rustup set profile default; \
 RUN cargo install nu; \ 
     cargo install cargo-tarpaulin; \
     cargo install cargo-criterion; \
-    cargo install cargo-watch; \ 
+    cargo install cargo-watch; \
+    cargo install tokio-console; \ 
     cargo install drill; \ 
     cargo install diesel_cli --no-default-features --features "sqlite"; \ 
     diesel completions bash > /etc/bash_completion.d/diesel;
@@ -126,6 +127,11 @@ RUN set -eux; \
 RUN set -eux; \
     rustup target add x86_64-apple-darwin; \
     echo "\n[target.x86_64-apple-darwin]\nlinker = \"x86_64-apple-darwin20.4-clang\"\nar = \"x86_64-apple-darwin20.4-ar\"" >> /root/.cargo/config.toml; 
+
+# Install WASM target
+RUN set -eux; \
+    curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -e all -p /usr/local; \
+    rustup target add wasm32-wasi;
 
 # Expose ports for webservices
 EXPOSE 80 8000 8001 8080 8081
